@@ -1,8 +1,16 @@
 
+from db import Base
+
+
 from .book import Book
 from .employee import Employee
-from  .student import Student
+from .student import Student
 from .user import User, pwd_context
-from sqlalchemy.ext.declarative import declarative_base
+from .user_profiles import UserProfile
+from .departments import Department
+from .user_departments import UserDepartment
 
-Base = declarative_base()
+
+
+
+

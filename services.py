@@ -1,13 +1,21 @@
 from models import Book, Employee, Student
 from sqlalchemy.orm import Session
 from schemas import BookCreate, EmployeeCreate, StudentCreate
-
-
+from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from datetime import datetime, timedelta
 from models import User, pwd_context
 from schemas import UserCreate
 from jose import jwt
 from datetime import datetime, timedelta
+from fastapi.security import APIKeyHeader
 
+
+api_key_scheme = APIKeyHeader(name="Authorization")
+
+from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 def create_book(db: Session, data: BookCreate):
@@ -115,12 +123,21 @@ def delete_student(db: Session, id: int):
 
 
 
-SECRET_KEY = "1569"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+#SECRET_KEY = "1569"
+#ALGORITHM = "HS256"
+#ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
+
+def get_user_by_username_or_email(db: Session, username_or_email: str):
+    return db.query(User).filter(
+        (User.username == username_or_email) | (User.email == username_or_email)
+    ).first()
+
+
+
+
 
 def create_user(db: Session, user: UserCreate):
     hashed_password = pwd_context.hash(user.password)
@@ -130,14 +147,65 @@ def create_user(db: Session, user: UserCreate):
     db.refresh(db_user)
     return db_user
 
-def authenticate_user(db: Session, username: str, password: str):
-    user = get_user_by_username(db, username)
+def authenticate_user(db: Session, username_or_email: str, password: str):
+    user = get_user_by_username_or_email(db, username_or_email)
     if not user or not user.verify_password(password):
         return None
     return user
+
 
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+
+
+
+
+
+
+def create_user(db: Session, user: UserCreate):
+    hashed_password = pwd_context.hash(user.password)
+    db_user = User(
+        username=user.username,
+        email=user.email,
+        hashed_password=hashed_password,
+        is_admin=user.is_admin
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
+
+def get_user_by_username_or_email(db: Session, value: str):
+    return db.query(User).filter((User.username == value) | (User.email == value)).first()
+
+
+
+
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_refresh_token(data: dict):
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode = data.copy()
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_token(token: str):
+    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    is_admin: Optional[bool] = False
