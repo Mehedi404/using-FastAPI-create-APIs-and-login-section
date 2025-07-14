@@ -32,6 +32,7 @@ class User(Base):
     profile = relationship("UserProfile", back_populates="user", uselist=False)
     user_departments = relationship("UserDepartment", back_populates="user")
     login_history = relationship("LoginHistory", back_populates="user")
+    uploads = relationship("FileUpload", back_populates="user")
 
 
     def verify_password(self, password: str) -> bool:

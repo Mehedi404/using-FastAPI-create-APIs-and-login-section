@@ -20,6 +20,8 @@ from fastapi import Request
 from routers import login_history
 
 from models.login_history import LoginHistory
+from fastapi.staticfiles import StaticFiles
+from routers.file_routes import router as file_router
 
 
 
@@ -32,6 +34,8 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+app.mount("/media", StaticFiles(directory="media"), name="media")
+
 # Include Routers
 app.include_router(book.router)
 app.include_router(employee.router)
@@ -39,6 +43,7 @@ app.include_router(student.router)
 app.include_router(auth_routes.router)
 app.include_router(headers.router)
 app.include_router(login_history.router)
+app.include_router(file_router)
 
 
 # OAuth2 scheme
