@@ -9,7 +9,7 @@ from .user import User, pwd_context
 from .user_profiles import UserProfile
 from .departments import Department
 from .user_departments import UserDepartment
-
+from .login_history import LoginHistory
 
 
 

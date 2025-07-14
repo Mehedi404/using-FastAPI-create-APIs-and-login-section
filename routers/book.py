@@ -20,7 +20,9 @@ def create_new_book(
     book: schemas.BookCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_admin_user)
+
 ):
+
     return services.create_book(db, book)
 
 @router.put("/{id}", response_model=schemas.Book)
@@ -34,6 +36,8 @@ def update_book(
     if not db_update:
         raise HTTPException(status_code=404, detail="Book Not Found")
     return db_update
+
+
 
 @router.delete("/{id}", response_model=schemas.Book)
 def delete_book(

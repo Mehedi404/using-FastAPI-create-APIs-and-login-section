@@ -1,4 +1,4 @@
-# utils/email.py
+
 import aiosmtplib
 from email.message import EmailMessage
 from config import EMAIL_FROM, SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD

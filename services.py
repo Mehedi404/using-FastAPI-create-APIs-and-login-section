@@ -119,14 +119,6 @@ def delete_student(db: Session, id: int):
 
 
 
-
-
-
-
-#SECRET_KEY = "1569"
-#ALGORITHM = "HS256"
-#ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
 def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
 
@@ -159,10 +151,6 @@ def create_access_token(data: dict):
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-
-
-
 
 
 

@@ -5,12 +5,12 @@ from config import VERIFY_EMAIL_URL, RESET_PASSWORD_URL
 from models import User
 from config import VERIFY_EMAIL_URL
 from schemas import UserCreate
-from security import pwd_context  # make sure this is imported correctly
-verify_url = f"{VERIFY_EMAIL_URL}?token={token}"
+from security import pwd_context
+
 
 from config import RESET_PASSWORD_URL
 
-reset_url = f"{RESET_PASSWORD_URL}?token={token}"
+
 
 async def create_user(db: Session, user_data: UserCreate):
     # Generate email verification token
@@ -36,6 +36,9 @@ async def create_user(db: Session, user_data: UserCreate):
 
     # Build verification URL
     verify_url = f"{VERIFY_EMAIL_URL}?token={token}"
+
+    reset_url = f"{RESET_PASSWORD_URL}?token={token}"
+
     body = f"Hi {user.username},\n\nPlease click the link below to verify your email:\n{verify_url}"
 
     # Send email

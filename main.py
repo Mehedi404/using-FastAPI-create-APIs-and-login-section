@@ -13,11 +13,19 @@ from models import User
 from security import pwd_context
 from config import VERIFY_EMAIL_URL, RESET_PASSWORD_URL
 from fastapi import BackgroundTasks
+from routers import auth_routes
+from fastapi import FastAPI
+from routers import book, employee, student, auth_routes, headers,login_history
+from fastapi import Request
+from routers import login_history
+
+from models.login_history import LoginHistory
+
+
 
 
 # Routers
 from routers import book, employee, student
-
 
 
 models.Base.metadata.create_all(bind=engine)
@@ -28,6 +36,10 @@ app = FastAPI()
 app.include_router(book.router)
 app.include_router(employee.router)
 app.include_router(student.router)
+app.include_router(auth_routes.router)
+app.include_router(headers.router)
+app.include_router(login_history.router)
+
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -65,7 +77,8 @@ async def signup(
     if services.get_user_by_email(db, user.email):
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    new_user = await services.create_user(db, user)
+
+    new_user = services.create_user(db, user)
 
     verify_url = f"{VERIFY_EMAIL_URL}?token={new_user.email_token}"
     body = f"Hi {new_user.username},\n\nPlease verify your email: {verify_url}"
@@ -75,15 +88,20 @@ async def signup(
     return new_user
 
 
-
 @app.post("/token", summary="Login with username or email")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login( request: Request,form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = services.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Please verify your email before logging in")
+
+    ip_address = request.client.host
+    user_agent = request.headers.get("user-agent")
+    login_entry = LoginHistory(user_id=user.id, ip_address=ip_address, user_agent=user_agent)
+    db.add(login_entry)
+    db.commit()
 
     access_token = services.create_access_token(data={"sub": user.username})
     refresh_token = services.create_refresh_token(data={"sub": user.username})
@@ -94,6 +112,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     }
 
 # ---------- Protected Route ----------
+
 
 @app.get("/secure-data/")
 def secure_data(current_user: schemas.User = Depends(get_current_user)):
@@ -123,67 +142,4 @@ def refresh_token(data: RefreshTokenRequest, db: Session = Depends(get_db)):
 
 
 
-
-
-@app.post("/resend-verification/")
-async def resend_email(user: schemas.EmailRequest, db: Session = Depends(get_db)):
-    user_obj = services.get_user_by_email(db, user.email)
-    if not user_obj:
-        raise HTTPException(404, "User not found")
-
-    token = str(uuid.uuid4())
-    user_obj.email_token = token
-    db.commit()
-
-    verify_url = f"{VERIFY_EMAIL_URL }/verify-email?token={token}"
-    try:
-        await send_email_async("Resend: Verify your email", user.email, f"Click here: {verify_url}")
-        return {"message": "Verification email resent"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send verification email: {e}")
-
-
-@app.get("/verify-email/")
-def verify_email(token: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email_token == token).first()
-    if not user:
-        raise HTTPException(status_code=400, detail="Invalid or expired token")
-
-    if user.is_verified:
-        return {"message": "Email already verified"}
-
-    user.is_verified = True
-    user.email_token = None
-    db.commit()
-    return {"message": "Email verified successfully"}
-
-
-@app.post("/forget-password/")
-async def forget_password(data: schemas.EmailRequest, db: Session = Depends(get_db)):
-    user = services.get_user_by_email(db, data.email)
-    if not user:
-        raise HTTPException(404, "User not found")
-
-    token = str(uuid.uuid4())
-    user.email_token = token
-    db.commit()
-
-    reset_url = f"{RESET_PASSWORD_URL}?token={token}"
-
-    await send_email_async("Reset your password", user.email, f"Reset link: {reset_url}")
-
-    return {"message": "Reset link sent to email"}
-
-
-@app.post("/reset-password/")
-def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email_token == token).first()
-    if not user:
-        raise HTTPException(400, "Invalid token")
-
-    user.hashed_password = pwd_context.hash(new_password)
-    user.email_token = None
-    db.commit()
-
-    return {"message": "Password updated successfully"}
 
